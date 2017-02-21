@@ -20,6 +20,9 @@ public class Site implements Serializable {
     @Column(nullable = false)
     private String url;
 
+    @Column(nullable = false)
+    private Boolean enable;
+
     public String getSid() {
         return sid;
     }
@@ -44,4 +47,11 @@ public class Site implements Serializable {
         this.url = url;
     }
 
+    public Boolean getEnable() {
+        return enable;
+    }
+
+    public void setEnable(Boolean enable) {
+        this.enable = enable;
+    }
 }
