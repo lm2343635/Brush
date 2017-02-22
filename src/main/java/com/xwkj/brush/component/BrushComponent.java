@@ -7,10 +7,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,48 +20,59 @@ public class BrushComponent {
 
     private boolean brushing = false;
     private List<Site> sites = null;
-    private int index = 0;
 
     @Scheduled(fixedRate = 1000 * 10)
     public void schedule() {
         // If brush system is not run now, start brush.
         if (!brushing) {
             // Connect PPPoE network. networksetup -connectpppoeservice PPPoE
-            exec("networksetup -connectpppoeservice PPPoE");
-            sites = siteDao.findAll();
+            sudo("pon dsl-provider");
+            sites = siteDao.findEnable();
+            System.out.println(sites.size() + " sites is enable to brush.");
             brushing = true;
+            return;
+        }
+        // If index is sites.size() - 1, stop brush.
+        if (sites.size() == 0) {
+            // Disconnect PPPoE network. networksetup -connectpppoeservice PPPoE
+            sudo("poff -a");
+            brushing = false;
+            return;
         }
         // If brush system is running, open a site.
         if (brushing) {
-            Site site = sites.get(index);
-            index++;
-            System.out.print(site.getUrl());
-            exec("open " + site.getUrl());
+//            run("wmctrl -c chrom");
+            Site site = sites.get(0);
+            System.out.println("Site: " + site.getUrl());
+            run("xdg-open " + site.getUrl());
+            sites.remove(site);
         }
-        // If index is sites.size() - 1, stop brush.
-        if (index == sites.size() - 1) {
-            sites = null;
-            index = 0;
-            // Disconnect PPPoE network. networksetup -connectpppoeservice PPPoE
-            exec("networksetup -connectpppoeservice PPPoE");
-        }
+
     }
 
-    public String exec(String cmd) {
-        InputStream inputStream = null;
+    protected static String sudoPasswd = "123";
+
+    public static void sudo(String cmd) {
+        String[] cmds = {"/bin/bash", "-c", "echo \"" + sudoPasswd + "\" | sudo -S " + cmd};
+        exec(cmds);
+    }
+
+    public static void run(String cmd) {
+        String[] cmds = {"/bin/bash", "-c",  cmd};
+        exec(cmds);
+    }
+
+    public static void exec(String [] cmds) {
         try {
-            Process process = Runtime.getRuntime().exec(cmd);
-            process.waitFor();
-            inputStream = process.getInputStream();
-            BufferedReader read = new BufferedReader(new InputStreamReader(inputStream));
-            String result = read.readLine();
-            System.out.println("INFO: " + result);
-            return result;
+            Process process = Runtime.getRuntime().exec(cmds);
+            InputStreamReader ir = new InputStreamReader(process.getInputStream());
+            LineNumberReader input = new LineNumberReader(ir);
+            String line;
+            while ((line = input.readLine()) != null) {
+                System.out.println(line);
+            }
         } catch (Exception e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
-        return null;
     }
-
 }
